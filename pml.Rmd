@@ -1,0 +1,113 @@
+---
+title: "Practical Machine Learning Project"
+author: "Pawe³ Piwowarski"
+date: "23 sierpnia 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Summary
+Final project of this course is predicting some data based on what we've learned in last weeks.
+I use three methods. The best allow me to get 100% on final test:)
+
+
+##Data cleaning and preparation
+
+#Data downloading
+
+```{r q}
+library(caret); 
+library(rattle); 
+library(rpart); 
+library(rpart.plot)
+library(randomForest); 
+library(repmis)
+library(e1071)
+train <- read.csv("pml-training.csv", na.strings = c("NA", ""))
+test <- read.csv("pml-testing.csv", na.strings = c("NA", ""))
+```
+
+#Data cleaning
+I removed all variables which has NA value and first seven variables which are only tags which couldn't help in predicting.
+
+```{r w}
+train <- train[, colSums(is.na(train)) == 0]
+test <- test[, colSums(is.na(test)) == 0]
+
+train <- train[, -c(1:7)]
+test <- test[, -c(1:7)]
+```
+
+I split training dataset for training and validation datasets (70/30).
+```{r e}
+set.seed(1983) 
+split <- createDataPartition(train$classe, p = 0.7, list = FALSE)
+train2 <- train[split, ]
+valid <- train[-split, ]
+```
+
+##Modelling
+
+#Classification trees
+
+```{r rr}
+trControl <- trainControl(method="cv", number=5)
+ct <- train(classe~., data=train2, method="rpart", trControl=trControl)
+fancyRpartPlot(ct$finalModel)
+
+pred <- predict(ct,newdata=valid)
+
+conct <- confusionMatrix(valid$classe,pred)
+
+conct$table
+
+conct$overall[1]
+```
+
+As we can see accuracy is pretty low.
+
+
+#Random forest
+
+```{r t}
+trControl <- trainControl(method="cv", number=5)
+
+rf <- train(classe~., data=train2, method="rf", trControl=trControl, verbose=FALSE)
+
+pred <- predict(rf, valid)
+confrf <- confusionMatrix(valid$classe, pred)
+
+confrf$overall[1]
+varImp(rf)
+plot(rf,main="Accuracy of Random forest model by number of predictors")
+
+
+```
+
+This approach is much better and it is almost 100%. On plot you can observe that number of predictors is not really important. Best accuracy is with 27 but 2 or 50 it is still good and much better than classification trees.
+
+
+#Gradient boosting
+
+```{r y}
+trControl <- trainControl(method="cv", number=5)
+
+library("gbm")
+gbm <- train(classe~., data=train2, method="gbm", trControl=trControl, verbose=FALSE)
+pred <- predict(gbm,newdata=valid)
+
+confgbm <- confusionMatrix(valid$classe,pred)
+confgbm$table
+confgbm$overall[1]
+```
+ 
+Accuracy of gradient boosting model is very good but definitely worse than random forest model.
+
+#Final prediction
+```{r u}
+FinalTestPred <- predict(rf,newdata=test)
+FinalTestPred
+```
